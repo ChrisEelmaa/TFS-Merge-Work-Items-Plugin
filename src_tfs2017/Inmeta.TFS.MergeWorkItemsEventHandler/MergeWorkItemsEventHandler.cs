@@ -98,32 +98,40 @@ namespace Inmeta.TFS.MergeWorkItemsEventHandler
 					var sourceItemPath = mergeSource.ServerItem;
 					var targetItemPath = pendingMerge.Item.ServerItem;
 
-                    var allowedSourceBranchPattern = @"/Dev|/Piloto|/Releases".Split('|').Select(x => x.ToLower());
-                    var allowedTargetBranchPattern = @"/Piloto|/Main".Split('|').Select(x => x.ToLower());
+                    var allowedSourceBranchPattern = ConfigurationManager.AppSettings("SourceBranchPattern");
+                    var allowedTargetBranchPattern = ConfigurationManager.AppSettings("TargetBranchPattern");
 
-                    var sourceItemPathHasSourcePattern = allowedSourceBranchPattern.Any(pattern => sourceItemPath.ToLower().Contains(pattern));
-                    var targetItemPathHasTargetPattern = allowedTargetBranchPattern.Any(pattern => targetItemPath.ToLower().Contains(pattern));
+                    //To mantain the logic of old versions of plugin, if no sourcBranchPattern or targetBranchPattern are informed in config file
+                    //the old logic will be applied.
+                    if (string.IsNullOrEmpty(allowedSourceBranchPattern) || string.IsNullOrEmpty(allowedTargetBranchPattern))
+                    {
+                        var sourceItemIsInRelease = sourceItemPath.Contains("/Releases");
+                        var sourceItemIsInTrunk = sourceItemPath.Contains("/Trunk");
+                        var sourceItemIsInBranches = sourceItemPath.Contains("/Branches");
 
-                    /*
-                    var sourceItemIsInRelease = sourceItemPath.Contains("/Releases");
-					var sourceItemIsInTrunk = sourceItemPath.Contains("/Trunk");
-					var sourceItemIsInBranches = sourceItemPath.Contains("/Branches");
+                        var targetItemIsInRelease = targetItemPath.Contains("/Releases");
+                        var targetItemIsInTrunk = targetItemPath.Contains("/Trunk");
+                        var targetItemIsInBranches = targetItemPath.Contains("/Branches");
 
-					var targetItemIsInRelease = targetItemPath.Contains("/Releases");
-					var targetItemIsInTrunk = targetItemPath.Contains("/Trunk");
-					var targetItemIsInBranches = targetItemPath.Contains("/Branches");
-                    
-					bool mergeWorkItems = (sourceItemIsInBranches || sourceItemIsInTrunk) &&
-										  targetItemIsInRelease;
+                        bool mergeWorkItems = (sourceItemIsInBranches || sourceItemIsInTrunk) &&
+                                              targetItemIsInRelease;
 
-					if(sourceItemIsInBranches && (targetItemIsInRelease || targetItemIsInTrunk))
-					{
-						mergeWorkItems = true;
-					}
-                    */
+                        if (sourceItemIsInBranches && (targetItemIsInRelease || targetItemIsInTrunk))
+                        {
+                            mergeWorkItems = true;
+                        }
 
-                    if (!sourceItemPathHasSourcePattern || !targetItemPathHasTargetPattern)
-                        continue;
+                        if (!mergeWorkItems)
+                            continue;
+                    }
+                    else
+                    {
+                        var sourceItemPathHasSourcePattern = allowedSourceBranchPattern.Split('|').Any(pattern => sourceItemPath.ToLower().Contains(pattern.ToLower()));
+                        var targetItemPathHasTargetPattern = allowedTargetBranchPattern.Split('|').Any(pattern => targetItemPath.ToLower().Contains(pattern.ToLower()));
+
+                        if (!sourceItemPathHasSourcePattern || !targetItemPathHasTargetPattern)
+                            continue;
+                    }
 
 					IEnumerable mergeHistory = GetMergeHistory(versionControlServer, mergeSource);
 

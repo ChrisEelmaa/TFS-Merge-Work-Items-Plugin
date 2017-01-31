@@ -61,8 +61,11 @@
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ConfigurationManager.cs" />
     <Compile Include="Inmeta.TFS.MergeWorkItemsEventHandler\Extensions.cs" />
     <Compile Include="Inmeta.TFS.MergeWorkItemsEventHandler\ImpersonatedCollection.cs" />
     <Compile Include="Inmeta.TFS.MergeWorkItemsEventHandler\MergeWorkItemsEventHandler.cs" />
