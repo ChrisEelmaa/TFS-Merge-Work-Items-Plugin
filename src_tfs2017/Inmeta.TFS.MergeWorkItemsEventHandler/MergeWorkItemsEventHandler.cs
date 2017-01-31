@@ -59,8 +59,8 @@ namespace Inmeta.TFS.MergeWorkItemsEventHandler
 						var changeset = requestContext.GetChangeset(checkinNotification.Changeset);
 						if (changeset != null)
 						{
-							TfsTeamProjectCollection impersonatedCollection = requestContext.GetCollection();
-							MergeWorkItems(impersonatedCollection, changeset.ChangesetId);
+							TfsTeamProjectCollection collection = requestContext.GetCollection();
+							MergeWorkItems(collection, changeset.ChangesetId);
 						}
 					}
 				}
