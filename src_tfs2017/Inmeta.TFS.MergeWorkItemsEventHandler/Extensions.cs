@@ -31,38 +31,31 @@ namespace Inmeta.TFS.MergeWorkItemsEventHandler
 
 		public static Changeset GetChangeset(this IVssRequestContext requestContext, int changesetId)
 		{
-			TeamFoundationVersionControlService service = requestContext.GetService<TeamFoundationVersionControlService>();
-			TeamFoundationDataReader teamFoundationDataReader = service.QueryChangeset(requestContext, changesetId, true, false, true);
-			return teamFoundationDataReader.Current<Changeset>();
+			var service = requestContext.GetService<TeamFoundationVersionControlService>();
+            var teamFoundationDataReader = service.QueryChangeset(requestContext, changesetId, true, false, true);
+            return teamFoundationDataReader.Current<Changeset>();
 		}
 
 	    public static TfsTeamProjectCollection GetCollection(this IVssRequestContext requestContext)
 	    {
 	        var service = requestContext.GetService<ILocationService>();
 	        var accessMapping = service.GetServerAccessMapping(requestContext);
-	        Uri selfReferenceUri = new Uri(service.GetSelfReferenceUrl(requestContext, accessMapping));
-	        return new TfsTeamProjectCollection(selfReferenceUri);
+	        var selfReferenceUri = new Uri(service.GetSelfReferenceUrl(requestContext, accessMapping));
+            return new TfsTeamProjectCollection(selfReferenceUri);
 	    }
 
 	    public static TfsTeamProjectCollection GetImpersonatedCollection(this IVssRequestContext requestContext, string userToImpersonate)
 		{
 			var service = requestContext.GetService<ILocationService>();
-			Uri selfReferenceUri = new Uri(service.GetSelfReferenceUrl(requestContext, service.GetServerAccessMapping(requestContext)));
-			return ImpersonatedCollection.CreateImpersonatedCollection(selfReferenceUri, userToImpersonate);
+			var selfReferenceUri = new Uri(service.GetSelfReferenceUrl(requestContext, service.GetServerAccessMapping(requestContext)));
+            return ImpersonatedCollection.CreateImpersonatedCollection(selfReferenceUri, userToImpersonate);
 		}
 
-		public static IEnumerable<Change> PendingMerges(this Change[] changes)
-		{
-			return 
-				from ch in changes
-				where (ch.ChangeType & ChangeType.Merge) == ChangeType.Merge
-				select ch;
-		}
-		public static bool ContainsArtifact(this LinkCollection links, string artifactUri)
-		{
-			return (
-				from l in links.OfType<ExternalLink>()
-				select l).Any((ExternalLink el) => el.LinkedArtifactUri == artifactUri);
-		}
-	}
+        public static IEnumerable<Change> PendingMerges(this Change[] changes) => from ch in changes
+                                                                                  where (ch.ChangeType & ChangeType.Merge) == ChangeType.Merge
+                                                                                  select ch;
+
+        public static bool ContainsArtifact(this LinkCollection links, string artifactUri) => (from l in links.OfType<ExternalLink>()
+                                                                                               select l).Any((ExternalLink el) => el.LinkedArtifactUri == artifactUri);
+    }
 }

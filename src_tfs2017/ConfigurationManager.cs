@@ -1,13 +1,8 @@
 ﻿using Microsoft.TeamFoundation.Framework.Server;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml;
 using System.Xml.Linq;
 using System.Xml.XPath;
 
@@ -53,7 +48,7 @@ namespace Inmeta.TFS.MergeWorkItemsEventHandler
             TeamFoundationApplicationCore.Log("Inmeta.TFS.MergeWorkItemEventHandler configuration file changed. Reloading...", 1, EventLogEntryType.Information);
             LoadDocument(_XmlFileName);
         }
-        
+
 
         public static bool VerboseLog { get; private set; }
 

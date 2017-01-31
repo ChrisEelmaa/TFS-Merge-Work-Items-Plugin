@@ -1,8 +1,5 @@
-using System.Diagnostics;
-using System.IO;
 using Microsoft.TeamFoundation.Client;
 using Microsoft.TeamFoundation.Common;
-using Microsoft.TeamFoundation.Framework.Client;
 using Microsoft.TeamFoundation.Framework.Server;
 using Microsoft.TeamFoundation.VersionControl.Client;
 using Microsoft.TeamFoundation.VersionControl.Server;
@@ -13,15 +10,12 @@ using System.Collections.Generic;
 using System.Linq;
 using Change = Microsoft.TeamFoundation.VersionControl.Client.Change;
 using ChangesetVersionSpec = Microsoft.TeamFoundation.VersionControl.Client.ChangesetVersionSpec;
-using ItemSpec = Microsoft.TeamFoundation.VersionControl.Client.ItemSpec;
 using MergeSource = Microsoft.TeamFoundation.VersionControl.Client.MergeSource;
 using RecursionType = Microsoft.TeamFoundation.VersionControl.Client.RecursionType;
-using VersionSpec = Microsoft.TeamFoundation.VersionControl.Client.VersionSpec;
-using System.Configuration;
 
 namespace Inmeta.TFS.MergeWorkItemsEventHandler
 {
-	public class MergeWorkItemsEventHandler : ISubscriber
+    public class MergeWorkItemsEventHandler : ISubscriber
 	{
 		public string Name
 		{
@@ -59,8 +53,8 @@ namespace Inmeta.TFS.MergeWorkItemsEventHandler
 						var changeset = requestContext.GetChangeset(checkinNotification.Changeset);
 						if (changeset != null)
 						{
-							TfsTeamProjectCollection collection = requestContext.GetCollection();
-							MergeWorkItems(collection, changeset.ChangesetId);
+							var collection = requestContext.GetCollection();
+                            MergeWorkItems(collection, changeset.ChangesetId);
 						}
 					}
 				}
@@ -72,8 +66,8 @@ namespace Inmeta.TFS.MergeWorkItemsEventHandler
 
 			return EventNotificationStatus.ActionPermitted;
 		}
-		private bool ShouldMergeItemsIfNecessary(
-			IVssRequestContext requestContext, 
+		private static bool ShouldMergeItemsIfNecessary(
+			IVssRequestContext requestContext,
 			CheckinNotification checkinNotification)
 		{
 			if (checkinNotification.Comment != null &&
@@ -84,7 +78,7 @@ namespace Inmeta.TFS.MergeWorkItemsEventHandler
 
 			return true;
 		}
-		private void MergeWorkItems(TfsTeamProjectCollection tpc, int changesetId)
+		private static void MergeWorkItems(TfsTeamProjectCollection tpc, int changesetId)
 		{
 			var versionControlServer = (VersionControlServer)tpc.GetService(typeof(VersionControlServer));
 			var changesForChangeset = versionControlServer.GetChangesForChangeset(changesetId, false, int.MaxValue, null, null, true);
@@ -94,96 +88,110 @@ namespace Inmeta.TFS.MergeWorkItemsEventHandler
 			{
 				foreach (MergeSource mergeSource in pendingMerge.MergeSources)
 				{
-                    // merge accross branches
-					var sourceItemPath = mergeSource.ServerItem;
-					var targetItemPath = pendingMerge.Item.ServerItem;
-
-                    var allowedSourceBranchPattern = ConfigurationManager.AppSettings("SourceBranchPattern");
-                    var allowedTargetBranchPattern = ConfigurationManager.AppSettings("TargetBranchPattern");
-
-                    //To mantain the logic of old versions of plugin, if no sourcBranchPattern or targetBranchPattern are informed in config file
-                    //the old logic will be applied.
-                    if (string.IsNullOrEmpty(allowedSourceBranchPattern) || string.IsNullOrEmpty(allowedTargetBranchPattern))
+                    if (sourceAndTargetBranchNeedToMergeWorkItems(pendingMerge, mergeSource))
                     {
-                        var sourceItemIsInRelease = sourceItemPath.Contains("/Releases");
-                        var sourceItemIsInTrunk = sourceItemPath.Contains("/Trunk");
-                        var sourceItemIsInBranches = sourceItemPath.Contains("/Branches");
-
-                        var targetItemIsInRelease = targetItemPath.Contains("/Releases");
-                        var targetItemIsInTrunk = targetItemPath.Contains("/Trunk");
-                        var targetItemIsInBranches = targetItemPath.Contains("/Branches");
-
-                        bool mergeWorkItems = (sourceItemIsInBranches || sourceItemIsInTrunk) &&
-                                              targetItemIsInRelease;
-
-                        if (sourceItemIsInBranches && (targetItemIsInRelease || targetItemIsInTrunk))
-                        {
-                            mergeWorkItems = true;
-                        }
-
-                        if (!mergeWorkItems)
-                            continue;
+                        associatedWorkItems.AddRange(getWorkItemsFromSourceCommits(versionControlServer, mergeSource, associatedWorkItems));
                     }
-                    else
-                    {
-                        var sourceItemPathHasSourcePattern = allowedSourceBranchPattern.Split('|').Any(pattern => sourceItemPath.ToLower().Contains(pattern.ToLower()));
-                        var targetItemPathHasTargetPattern = allowedTargetBranchPattern.Split('|').Any(pattern => targetItemPath.ToLower().Contains(pattern.ToLower()));
-
-                        if (!sourceItemPathHasSourcePattern || !targetItemPathHasTargetPattern)
-                            continue;
-                    }
-
-					IEnumerable mergeHistory = GetMergeHistory(versionControlServer, mergeSource);
-
-					var workItems =
-						from Microsoft.TeamFoundation.VersionControl.Client.Changeset cs in mergeHistory
-						from wi in
-							from wi in cs.WorkItems
-							where associatedWorkItems.All(w => w != wi.Id)
-							select wi
-						select wi;
-
-					associatedWorkItems.AddRange(workItems.Select(workItem => workItem.Id));
 				}
 			}
 
 			AddWorkItemsToChangeset(tpc, changesetId, associatedWorkItems);
 		}
-		private static IEnumerable GetMergeHistory(VersionControlServer vcs, MergeSource ms)
+
+        private static IEnumerable<int> getWorkItemsFromSourceCommits(VersionControlServer versionControlServer, MergeSource mergeSource, List<int> associatedWorkItems)
+        {
+            var mergeHistory = GetMergeHistory(versionControlServer, mergeSource);
+
+            var workItems =
+                from Microsoft.TeamFoundation.VersionControl.Client.Changeset cs in mergeHistory
+                from wi in
+                    from wi in cs.WorkItems
+                    where associatedWorkItems.All(w => w != wi.Id)
+                    select wi
+                select wi;
+
+            return workItems.Select(workItem => workItem.Id);
+        }
+
+        private static bool sourceAndTargetBranchNeedToMergeWorkItems(Change pendingMerge, MergeSource mergeSource)
+        {
+            // merge accross branches
+            var sourceItemPath = mergeSource.ServerItem;
+            var targetItemPath = pendingMerge.Item.ServerItem;
+
+            var allowedSourceBranchPattern = ConfigurationManager.AppSettings("SourceBranchPattern");
+            var allowedTargetBranchPattern = ConfigurationManager.AppSettings("TargetBranchPattern");
+
+            //To mantain the logic of old versions of plugin, if no sourcBranchPattern or targetBranchPattern are informed in config file
+            //the old logic will be applied.
+            if (string.IsNullOrEmpty(allowedSourceBranchPattern) || string.IsNullOrEmpty(allowedTargetBranchPattern))
+            {
+                var sourceItemIsInRelease = sourceItemPath.Contains("/Releases");
+                var sourceItemIsInTrunk = sourceItemPath.Contains("/Trunk");
+                var sourceItemIsInBranches = sourceItemPath.Contains("/Branches");
+
+                var targetItemIsInRelease = targetItemPath.Contains("/Releases");
+                var targetItemIsInTrunk = targetItemPath.Contains("/Trunk");
+                var targetItemIsInBranches = targetItemPath.Contains("/Branches");
+
+                var mergeWorkItems = (sourceItemIsInBranches || sourceItemIsInTrunk) &&
+                                      targetItemIsInRelease;
+
+                if (sourceItemIsInBranches && (targetItemIsInRelease || targetItemIsInTrunk))
+                {
+                    mergeWorkItems = true;
+                }
+
+                if (!mergeWorkItems)
+                    return false;
+            }
+            else
+            {
+                var sourceItemPathHasSourcePattern = allowedSourceBranchPattern.Split('|').Any(pattern => sourceItemPath.ToLower().Contains(pattern.ToLower()));
+                var targetItemPathHasTargetPattern = allowedTargetBranchPattern.Split('|').Any(pattern => targetItemPath.ToLower().Contains(pattern.ToLower()));
+
+                if (!sourceItemPathHasSourcePattern || !targetItemPathHasTargetPattern)
+                    return false;
+            }
+
+            return true;
+        }
+
+        private static IEnumerable GetMergeHistory(VersionControlServer vcs, MergeSource ms)
 		{
 			var changesetVersionSpec = new ChangesetVersionSpec(ms.VersionFrom);
 			var versionTo = new ChangesetVersionSpec(ms.VersionTo);
 
 			return vcs.QueryHistory(
-				ms.ServerItem, 
+				ms.ServerItem,
 				changesetVersionSpec,
-				0, 
-				RecursionType.Full, 
-				null, 
-				changesetVersionSpec, 
-				versionTo, 
-				2147483647, 
-				true, 
+				0,
+				RecursionType.Full,
+				null,
+				changesetVersionSpec,
+				versionTo,
+				2147483647,
+				true,
 				true);
 		}
-		private void AddWorkItemsToChangeset(
+		private static void AddWorkItemsToChangeset(
 			TfsTeamProjectCollection tpc,
-			int changeSetId, 
+			int changeSetId,
 			IReadOnlyCollection<int> workItems)
 		{
 			if (workItems.Count != 0)
 			{
 				var workItemStore = (WorkItemStore)tpc.GetService(typeof(WorkItemStore));
 				var versionControlServer = (VersionControlServer)tpc.GetService(typeof(VersionControlServer));
-				
+
 				foreach (int current in workItems)
 				{
-					WorkItem workItem = workItemStore.GetWorkItem(current);
-					RegisteredLinkType type = workItemStore.RegisteredLinkTypes["Fixed in Changeset"];
-	
-					string history = "Automatically associated with changeset " + changeSetId;
+					var workItem = workItemStore.GetWorkItem(current);
+                    var type = workItemStore.RegisteredLinkTypes["Fixed in Changeset"];
 
-					var changeset = versionControlServer.GetChangeset(changeSetId);
+                    var history = "Automatically associated with changeset " + changeSetId;
+
+                    var changeset = versionControlServer.GetChangeset(changeSetId);
 					var externalLink = new ExternalLink(type, changeset.ArtifactUri.AbsoluteUri)
 					{
 						Comment = changeset.Comment

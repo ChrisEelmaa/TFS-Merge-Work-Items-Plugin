@@ -9,11 +9,11 @@ namespace Inmeta.TFS.MergeWorkItemsEventHandler
 	{
 		public static TfsTeamProjectCollection CreateImpersonatedCollection(Uri collectionToUse, string userToImpersonate)
 		{
-			NetworkCredential defaultNetworkCredentials = CredentialCache.DefaultNetworkCredentials;
-			TfsTeamProjectCollection tfsTeamProjectCollection = new TfsTeamProjectCollection(collectionToUse, defaultNetworkCredentials);
-			IIdentityManagementService service = tfsTeamProjectCollection.GetService<IIdentityManagementService>();
-			TeamFoundationIdentity teamFoundationIdentity = service.ReadIdentity(IdentitySearchFactor.AccountName, userToImpersonate, MembershipQuery.None, ReadIdentityOptions.None);
-			return new TfsTeamProjectCollection(collectionToUse, new TfsClientCredentials(), teamFoundationIdentity.Descriptor);
+			var defaultNetworkCredentials = CredentialCache.DefaultNetworkCredentials;
+            var tfsTeamProjectCollection = new TfsTeamProjectCollection(collectionToUse, defaultNetworkCredentials);
+            var service = tfsTeamProjectCollection.GetService<IIdentityManagementService>();
+            var teamFoundationIdentity = service.ReadIdentity(IdentitySearchFactor.AccountName, userToImpersonate, MembershipQuery.None, ReadIdentityOptions.None);
+            return new TfsTeamProjectCollection(collectionToUse, new TfsClientCredentials(), teamFoundationIdentity.Descriptor);
 		}
 	}
 }
