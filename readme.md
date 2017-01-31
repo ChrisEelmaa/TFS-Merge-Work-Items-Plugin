@@ -1,4 +1,30 @@
-### TFS 2015 Merge Work Items Event Handler 
+### TFS 2017 Merge Work Items Event Handler
+Based on ChrisEelmaa work (https://github.com/ChrisEelmaa/TFS-2015-Merge-Work-Items-Event-Handler) I compiled this handler using TFS 2017 binaries and made some changes. Now, besides the old logic for merge work items (describled below), you have a opportunity to use a simple pattern in configuration file to config what is the __Source Branchs__ and what is the __Target Branchs__. If you have something like:
+
+```
+              Hotfix --------------
+             /
+Main-------------------------------
+          \ 
+            Test ------------------
+             \
+               Development --------
+```
+
+You can set the configuration file (`assemblyName.dll.config`) as:
+
+```xml
+<?xml version="1.0" encoding="utf-8" ?>
+<configuration>
+  <appSettings>
+    <add key="SourceBranchPattern" value="/Develop|/Test|/Hotfix" />
+    <add key="TargetBranchPattern" value="/Test|/Main|"/>
+  </appSettings>
+</configuration>
+```
+
+
+### TFS 2015 Merge Work Items Event Handler (old version)
 
 I have upgraded the existing project ([TFS2013](https://mergeworkitems.codeplex.com)) to work with TFS 2015, and made few minor changes. Few services were deprecated, and had to be replaced. I also changed the logic how the **should work item be merged?** is answered.
 
